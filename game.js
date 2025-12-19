@@ -133,7 +133,6 @@ class Sword {
     this.angle = 0
     this.targetAngle = 0
     this.lastAttackTime = 0
-    this.hitEnemiesThisSwing = new Set()
   }
 
   startSwing(angle) {
@@ -146,7 +145,6 @@ class Sword {
     this.swingProgress = 0
     this.targetAngle = angle
     this.lastAttackTime = currentTime
-    this.hitEnemiesThisSwing.clear()
     return true
   }
 
@@ -156,7 +154,6 @@ class Sword {
       if (this.swingProgress >= 1) {
         this.isSwinging = false
         this.swingProgress = 0
-        this.hitEnemiesThisSwing.clear()
       }
     }
 
@@ -169,34 +166,29 @@ class Sword {
     ctx.save()
     ctx.translate(x, y)
 
-    if (this.isSwinging) {
-      const swingOffset = Math.sin(this.swingProgress * Math.PI) * this.type.swingAngle
-      ctx.rotate(this.angle + swingOffset)
-    } else {
-      ctx.rotate(this.angle)
-    }
+    const swingStart = -this.type.swingAngle / 2
+    const swingEnd = this.type.swingAngle / 2
+    const currentSwingAngle = swingStart + (swingEnd - swingStart) * this.swingProgress
+
+    ctx.rotate(this.angle + currentSwingAngle)
 
     ctx.strokeStyle = this.type.color
-    ctx.lineWidth = 6
+    ctx.lineWidth = 8
     ctx.lineCap = "round"
 
     ctx.beginPath()
-    ctx.moveTo(0, 0)
+    ctx.moveTo(10, 0)
     ctx.lineTo(this.type.range, 0)
     ctx.stroke()
 
-    ctx.fillStyle = "#ffd700"
-    ctx.beginPath()
-    ctx.arc(0, 0, 4, 0, Math.PI * 2)
-    ctx.fill()
+    ctx.fillStyle = "#8B4513"
+    ctx.fillRect(0, -5, 15, 10)
 
     ctx.restore()
   }
 
   checkHit(enemyX, enemyY, playerX, playerY, enemySize, enemyId) {
     if (!this.isSwinging) return false
-
-    if (this.hitEnemiesThisSwing.has(enemyId)) return false
 
     const dx = enemyX - playerX
     const dy = enemyY - playerY
@@ -205,20 +197,17 @@ class Sword {
     if (distance > this.type.range + enemySize / 2) return false
 
     const angleToEnemy = Math.atan2(dy, dx)
-    const swingOffset = Math.sin(this.swingProgress * Math.PI) * this.type.swingAngle
-    const currentAngle = this.angle + swingOffset
+
+    const swingStart = -this.type.swingAngle / 2
+    const swingEnd = this.type.swingAngle / 2
+    const currentSwingAngle = swingStart + (swingEnd - swingStart) * this.swingProgress
+    const currentAngle = this.angle + currentSwingAngle
 
     let angleDiff = angleToEnemy - currentAngle
     while (angleDiff > Math.PI) angleDiff -= Math.PI * 2
     while (angleDiff < -Math.PI) angleDiff += Math.PI * 2
 
-    const isHit = Math.abs(angleDiff) < this.type.swingAngle / 2
-
-    if (isHit) {
-      this.hitEnemiesThisSwing.add(enemyId)
-    }
-
-    return isHit
+    return Math.abs(angleDiff) < Math.PI / 4
   }
 }
 
@@ -305,7 +294,6 @@ class Enemy {
     this.patternTimer++
 
     if (this.type.pattern === "charge") {
-      // 돌진 패턴
       if (this.patternTimer % 180 === 0) {
         const dx = player.x - this.x
         const dy = player.y - this.y
@@ -321,19 +309,16 @@ class Enemy {
         this.chargeSpeed *= 0.95
       }
     } else if (this.type.pattern === "teleport") {
-      // 순간이동 패턴
       if (this.patternTimer % 120 === 0) {
         const angle = Math.random() * Math.PI * 2
         const distance = 200
         this.x = player.x + Math.cos(angle) * distance
         this.y = player.y + Math.sin(angle) * distance
 
-        // 화면 안에 위치하도록 조정
         this.x = Math.max(this.size, Math.min(CANVAS_WIDTH - this.size, this.x))
         this.y = Math.max(this.size, Math.min(CANVAS_HEIGHT - this.size, this.y))
       }
     } else if (this.type.pattern === "summon") {
-      // 소환 패턴
       if (this.patternTimer % 240 === 0 && game.enemies.length < 30) {
         for (let i = 0; i < 3; i++) {
           const angle = ((Math.PI * 2) / 3) * i
@@ -353,7 +338,6 @@ class Enemy {
       this.updateBossPattern(player, game)
     }
 
-    // 원거리 적 발사
     if (this.type.shootInterval) {
       const currentTime = Date.now()
       if (currentTime - this.lastShootTime > this.shootInterval) {
@@ -363,7 +347,6 @@ class Enemy {
       return
     }
 
-    // 일반 이동 (보스 돌진 중이 아닐 때)
     if (!this.type.pattern || this.chargeSpeed <= 0) {
       const dx = player.x - this.x
       const dy = player.y - this.y
@@ -383,13 +366,11 @@ class Enemy {
 
   draw(ctx) {
     if (this.type.pattern) {
-      // 보스 오라
       ctx.fillStyle = this.color + "33"
       ctx.beginPath()
       ctx.arc(this.x, this.y, this.size * 1.5, 0, Math.PI * 2)
       ctx.fill()
 
-      // 보스 왕관
       ctx.fillStyle = "#ffd700"
       ctx.font = `${this.size}px Arial`
       ctx.textAlign = "center"
@@ -406,7 +387,6 @@ class Enemy {
       ctx.fill()
     }
 
-    // 체력바
     const barWidth = this.size * 1.2
     const barHeight = 4
     const healthPercent = this.health / this.maxHealth
@@ -573,7 +553,6 @@ class Game {
       this.player.attack()
     })
 
-    // 검 선택 이벤트
     document.getElementById("selectLongsword").addEventListener("click", () => {
       document.getElementById("swordSelectionScreen").classList.remove("active")
       this.startGame("LONGSWORD")
@@ -612,13 +591,12 @@ class Game {
       return
     }
 
-    // 일반 웨이브 적 소환
     const baseEnemyCount = 5 + this.wave * 2
 
     for (let i = 0; i < baseEnemyCount; i++) {
       const side = Math.floor(Math.random() * 4)
       let x, y
-      const margin = 100 // 맵 가장자리에서 안쪽으로 100px
+      const margin = 100
 
       if (side === 0) {
         x = Math.random() * (CANVAS_WIDTH - margin * 2) + margin
@@ -779,7 +757,6 @@ class Game {
       if (this.isBossFight) {
         this.isBossFight = false
 
-        // 능력치 대폭 상승
         this.player.maxHealth += 50
         this.player.heal(100)
         this.player.sword.type.damage *= 1.5
@@ -788,13 +765,11 @@ class Game {
         this.ui.updateHealth(this.player.health, this.player.maxHealth)
         this.ui.addUpgrade("🏆 보스 처치! 능력치 대폭 상승!")
 
-        // 30웨이브 클리어 시 엔딩
         if (this.wave === 30) {
           this.gameWin()
           return
         }
       } else {
-        // 일반 웨이브 클리어
         this.player.heal(20)
         this.ui.updateHealth(this.player.health, this.player.maxHealth)
         this.ui.addUpgrade("웨이브 클리어! 체력 회복 +20")
