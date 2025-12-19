@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>검 로그라이크 - Sword Roguelike</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="game-container">
+    <div class="header">
+      <h1>⚔️ 검 로그라이크</h1>
+      <div class="controls-info">
+        <span>이동: WASD</span>
+        <span>공격: 마우스 클릭 (방향)</span>
+        <span>일시정지: P</span>
+        <span>재시작: R</span>
+      </div>
+    </div>
+    
+    <div class="game-wrapper">
+      <canvas id="gameCanvas" width="800" height="600"></canvas>
+      
+      <div class="game-ui">
+        <div class="stat-bar">
+          <div class="stat-item health">
+            <span class="label">❤️ 체력</span>
+            <div class="bar">
+              <div class="bar-fill" id="healthBar"></div>
+            </div>
+            <span class="value" id="healthValue">100/100</span>
+          </div>
+        </div>
+        
+        <div class="stat-grid">
+          <div class="stat-card">
+            <span class="stat-label">점수</span>
+            <span class="stat-value" id="scoreValue">0</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">레벨</span>
+            <span class="stat-value" id="levelValue">1</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">처치</span>
+            <span class="stat-value" id="killsValue">0</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">웨이브</span>
+            <span class="stat-value" id="waveValue">1</span>
+          </div>
+        </div>
+        
+        <div class="upgrades" id="upgradesContainer"></div>
+      </div>
+    </div>
+    
+    <!-- 검 선택 화면 추가 -->
+    <div class="sword-selection-screen" id="swordSelectionScreen">
+      <div class="sword-selection-content">
+        <h2>검을 선택하세요</h2>
+        <div class="sword-options">
+          <div class="sword-option" id="selectLongsword">
+            <div class="sword-icon">⚔️</div>
+            <h3>롱소드</h3>
+            <div class="sword-stats">
+              <p>사거리: <span class="stat-medium">중거리</span></p>
+              <p>공격속도: <span class="stat-medium">보통</span></p>
+              <p>공격력: <span class="stat-medium">보통</span></p>
+            </div>
+            <p class="sword-desc">균형잡힌 만능 검</p>
+          </div>
+
+          <div class="sword-option" id="selectDagger">
+            <div class="sword-icon">🗡️</div>
+            <h3>단검</h3>
+            <div class="sword-stats">
+              <p>사거리: <span class="stat-low">근거리</span></p>
+              <p>공격속도: <span class="stat-high">빠름</span></p>
+              <p>공격력: <span class="stat-low">낮음</span></p>
+            </div>
+            <p class="sword-desc">빠른 연속 공격</p>
+          </div>
+
+          <div class="sword-option" id="selectGreatsword">
+            <div class="sword-icon">⚔️</div>
+            <h3>대검</h3>
+            <div class="sword-stats">
+              <p>사거리: <span class="stat-high">광범위</span></p>
+              <p>공격속도: <span class="stat-low">느림</span></p>
+              <p>공격력: <span class="stat-high">높음</span></p>
+            </div>
+            <p class="sword-desc">강력한 일격</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="game-over-screen" id="gameOverScreen">
+      <div class="game-over-content">
+        <h2>게임 오버!</h2>
+        <div class="final-stats">
+          <p>최종 점수: <span id="finalScore">0</span></p>
+          <p>최종 레벨: <span id="finalLevel">1</span></p>
+          <p>총 처치: <span id="finalKills">0</span></p>
+        </div>
+        <button id="restartButton">재시작 (R)</button>
+      </div>
+    </div>
+  </div>
+  
+  <script src="game.js"></script>
+</body>
+</html>
