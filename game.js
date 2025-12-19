@@ -160,7 +160,7 @@ class Sword {
     this.angle += (this.targetAngle - this.angle) * 0.3
   }
 
-  draw(ctx, x, y) {
+  draw(ctx, x, y, angle) {
     if (!this.isSwinging && this.swingProgress === 0) return
 
     ctx.save()
@@ -170,7 +170,7 @@ class Sword {
     const swingEnd = this.type.swingAngle / 2
     const currentSwingAngle = swingStart + (swingEnd - swingStart) * this.swingProgress
 
-    ctx.rotate(this.angle + currentSwingAngle)
+    ctx.rotate(angle + currentSwingAngle)
 
     ctx.strokeStyle = this.type.color
     ctx.lineWidth = 8
@@ -252,7 +252,6 @@ class Player {
   draw(ctx) {
     ctx.save()
     ctx.translate(this.x, this.y)
-    ctx.rotate(this.mouseAngle)
 
     ctx.fillStyle = "#4a90e2"
     ctx.fillRect(-this.size / 2, -this.size / 2, this.size, this.size)
@@ -262,7 +261,7 @@ class Player {
 
     ctx.restore()
 
-    this.sword.draw(ctx, this.x, this.y)
+    this.sword.draw(ctx, this.x, this.y, this.mouseAngle)
   }
 }
 
