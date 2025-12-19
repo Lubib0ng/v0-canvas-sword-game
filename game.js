@@ -29,6 +29,15 @@ const SWORD_TYPES = {
     swingAngle: Math.PI / 2,
     color: "#dc143c",
   },
+  CHAINSAW: {
+    name: "전기톱",
+    range: 50,
+    damage: 8, // 낮은 데미지지만 지속 공격
+    cooldown: 100, // 매우 짧은 쿨다운으로 자동 공격
+    swingAngle: Math.PI / 6,
+    color: "#ff8c00",
+    autoAttack: true, // 자동 공격 활성화
+  },
 }
 
 const ENEMY_TYPES = {
@@ -136,6 +145,7 @@ class Sword {
     this.angle = 0
     this.targetAngle = 0
     this.lastAttackTime = 0
+    this.chainsawRotation = 0
   }
 
   startSwing(angle) {
@@ -152,7 +162,11 @@ class Sword {
   }
 
   update() {
-    if (this.isSwinging) {
+    if (this.type.autoAttack) {
+      this.isSwinging = true
+      this.swingProgress = 0.5 // 항상 중간 위치 유지
+      this.chainsawRotation += 0.5 // 회전 애니메이션
+    } else if (this.isSwinging) {
       this.swingProgress += 1000 / 60 / this.swingDuration
       if (this.swingProgress >= 1) {
         this.isSwinging = false
@@ -169,23 +183,56 @@ class Sword {
     ctx.save()
     ctx.translate(x, y)
 
-    const swingStart = -this.type.swingAngle / 2
-    const swingEnd = this.type.swingAngle / 2
-    const currentSwingAngle = swingStart + (swingEnd - swingStart) * this.swingProgress
+    if (this.type.autoAttack) {
+      ctx.rotate(angle)
 
-    ctx.rotate(angle + currentSwingAngle)
+      // 톱날 그리기
+      ctx.strokeStyle = this.type.color
+      ctx.lineWidth = 12
+      ctx.lineCap = "round"
 
-    ctx.strokeStyle = this.type.color
-    ctx.lineWidth = 8
-    ctx.lineCap = "round"
+      ctx.beginPath()
+      ctx.arc(this.type.range - 10, 0, 15, 0, Math.PI * 2)
+      ctx.stroke()
 
-    ctx.beginPath()
-    ctx.moveTo(10, 0)
-    ctx.lineTo(this.type.range, 0)
-    ctx.stroke()
+      // 톱날 회전 효과
+      ctx.strokeStyle = "#ffff00"
+      ctx.lineWidth = 4
+      for (let i = 0; i < 4; i++) {
+        const angle = (Math.PI / 2) * i + this.chainsawRotation
+        const x1 = this.type.range - 10 + Math.cos(angle) * 10
+        const y1 = Math.sin(angle) * 10
+        const x2 = this.type.range - 10 + Math.cos(angle) * 15
+        const y2 = Math.sin(angle) * 15
+        ctx.beginPath()
+        ctx.moveTo(x1, y1)
+        ctx.lineTo(x2, y2)
+        ctx.stroke()
+      }
 
-    ctx.fillStyle = "#8B4513"
-    ctx.fillRect(0, -5, 15, 10)
+      // 손잡이
+      ctx.fillStyle = "#8B4513"
+      ctx.fillRect(10, -5, this.type.range - 25, 10)
+    } else {
+      // 기존 검 렌더링
+      const swingStart = -this.type.swingAngle / 2
+      const swingEnd = this.type.swingAngle / 2
+      const currentSwingAngle = swingStart + (swingEnd - swingStart) * this.swingProgress
+
+      ctx.rotate(angle + currentSwingAngle)
+
+      ctx.strokeStyle = this.type.color
+      ctx.lineWidth = 8
+      ctx.lineCap = "round"
+
+      ctx.beginPath()
+      ctx.moveTo(10, 0)
+      ctx.lineTo(this.type.range, 0)
+      ctx.stroke()
+
+      ctx.fillStyle = "#8B4513"
+      ctx.fillRect(0, -5, 15, 10)
+    }
 
     ctx.restore()
   }
@@ -198,6 +245,14 @@ class Sword {
     const distance = Math.sqrt(dx * dx + dy * dy)
 
     if (distance > this.type.range + enemySize / 2) return false
+
+    if (this.type.autoAttack) {
+      const angleToEnemy = Math.atan2(dy, dx)
+      let angleDiff = angleToEnemy - this.angle
+      while (angleDiff > Math.PI) angleDiff -= Math.PI * 2
+      while (angleDiff < -Math.PI) angleDiff += Math.PI * 2
+      return Math.abs(angleDiff) < Math.PI / 3 // 더 넓은 범위
+    }
 
     const angleToEnemy = Math.atan2(dy, dx)
 
@@ -330,11 +385,11 @@ class Player {
 }
 
 class Enemy {
-  constructor(x, y, level, type) {
+  constructor(x, y, level, type, wave = 1) {
     this.x = x
     this.y = y
     this.type = type
-    this.speed = type.speed * (1 + level * 0.1)
+    this.speed = type.speed * (1 + level * 0.1 + wave * 0.05)
     this.maxHealth = type.health * (1 + level * 0.2)
     this.health = this.maxHealth
     this.damage = type.damage * (1 + level * 0.15)
@@ -623,6 +678,11 @@ class Game {
       this.startGame("GREATSWORD")
     })
 
+    document.getElementById("selectChainsaw").addEventListener("click", () => {
+      document.getElementById("swordSelectionScreen").classList.remove("active")
+      this.startGame("CHAINSAW")
+    })
+
     document.getElementById("restartButton").addEventListener("click", () => {
       location.reload()
     })
@@ -648,17 +708,17 @@ class Game {
   startWave() {
     if (this.wave === 10) {
       this.isBossFight = true
-      this.enemies.push(new Enemy(CANVAS_WIDTH / 2, -100, this.level, BOSS_TYPES.BOSS_1))
+      this.enemies.push(new Enemy(CANVAS_WIDTH / 2, -100, this.level, BOSS_TYPES.BOSS_1, this.wave))
       this.ui.addUpgrade("⚠️ 보스 등장: 어둠의 기사!")
       return
     } else if (this.wave === 20) {
       this.isBossFight = true
-      this.enemies.push(new Enemy(CANVAS_WIDTH / 2, -100, this.level, BOSS_TYPES.BOSS_2))
+      this.enemies.push(new Enemy(CANVAS_WIDTH / 2, -100, this.level, BOSS_TYPES.BOSS_2, this.wave))
       this.ui.addUpgrade("⚠️ 보스 등장: 사신!")
       return
     } else if (this.wave === 30) {
       this.isBossFight = true
-      this.enemies.push(new Enemy(CANVAS_WIDTH / 2, -100, this.level, BOSS_TYPES.BOSS_3))
+      this.enemies.push(new Enemy(CANVAS_WIDTH / 2, -100, this.level, BOSS_TYPES.BOSS_3, this.wave))
       this.ui.addUpgrade("⚠️ 최종 보스 등장: 파멸의 군주!")
       return
     }
@@ -695,7 +755,7 @@ class Game {
         type = ENEMY_TYPES.RANGED
       }
 
-      this.enemies.push(new Enemy(x, y, this.level, type))
+      this.enemies.push(new Enemy(x, y, this.level, type, this.wave))
     }
 
     this.ui.updateWave(this.wave)
