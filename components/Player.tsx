@@ -69,7 +69,9 @@ const Player = forwardRef<RigidBodyApi, PlayerProps>(({ onAttack, onDash, isDash
     // 카메라 위치 업데이트
     const position = ref.current.translation()
     camera.position.set(position.x, position.y + 0.6, position.z)
-    camera.rotation.set(mouseAngle.x, mouseAngle.y, 0)
+
+    const clampedX = Math.max(-Math.PI / 2 + 0.01, Math.min(Math.PI / 2 - 0.01, mouseAngle.x))
+    camera.rotation.set(clampedX, mouseAngle.y, 0)
   })
 
   return (

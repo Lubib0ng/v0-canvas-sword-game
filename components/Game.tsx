@@ -77,10 +77,13 @@ export default function Game({ weaponType, onGameStateChange, onRestart }: GameP
   // 마우스 움직임 추적
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
-      setMouseAngle((prev) => ({
-        x: prev.x - e.movementY * 0.002,
-        y: prev.y - e.movementX * 0.002,
-      }))
+      setMouseAngle((prev) => {
+        const newX = Math.max(-Math.PI / 2 + 0.01, Math.min(Math.PI / 2 - 0.01, prev.x - e.movementY * 0.002))
+        return {
+          x: newX,
+          y: prev.y - e.movementX * 0.002,
+        }
+      })
     }
 
     document.addEventListener("mousemove", handleMouseMove)
