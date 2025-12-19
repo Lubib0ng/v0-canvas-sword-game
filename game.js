@@ -65,32 +65,35 @@ const ENEMY_TYPES = {
     size: ENEMY_SIZE,
     shootInterval: 2000,
   },
+}
+
+const BOSS_TYPES = {
   BOSS_1: {
     name: "어둠의 기사",
-    speed: 1.5,
+    speed: 1.0, // 1.5에서 감소
     health: 500,
     damage: 25,
     color: "#8b00ff",
-    size: ENEMY_SIZE * 3,
-    pattern: "charge", // 돌진 패턴
+    size: ENEMY_SIZE * 4, // 3에서 증가
+    pattern: "charge",
   },
   BOSS_2: {
     name: "사신",
-    speed: 2.0,
+    speed: 1.3, // 2.0에서 감소
     health: 1000,
     damage: 35,
     color: "#ff0080",
-    size: ENEMY_SIZE * 3.5,
-    pattern: "teleport", // 순간이동 패턴
+    size: ENEMY_SIZE * 4.5, // 3.5에서 증가
+    pattern: "teleport",
   },
   BOSS_3: {
     name: "파멸의 군주",
-    speed: 1.0,
+    speed: 0.7, // 1.0에서 감소
     health: 2000,
     damage: 50,
     color: "#ff6600",
-    size: ENEMY_SIZE * 4,
-    pattern: "summon", // 소환 패턴
+    size: ENEMY_SIZE * 5, // 4에서 증가
+    pattern: "summon",
   },
 }
 
@@ -221,9 +224,17 @@ class Player {
     this.health = this.maxHealth
     this.sword = new Sword(swordType)
     this.mouseAngle = 0
+    this.isDashing = false
+    this.dashSpeed = 15
+    this.dashDuration = 150
+    this.dashCooldown = 1000
+    this.lastDashTime = 0
+    this.dashEndTime = 0
+    this.invincible = false
   }
 
   takeDamage(amount) {
+    if (this.invincible) return
     this.health -= amount
     if (this.health < 0) this.health = 0
   }
@@ -234,10 +245,22 @@ class Player {
   }
 
   update(keys) {
-    if (keys["w"] || keys["arrowup"]) this.y -= this.speed
-    if (keys["s"] || keys["arrowdown"]) this.y += this.speed
-    if (keys["a"] || keys["arrowleft"]) this.x -= this.speed
-    if (keys["d"] || keys["arrowright"]) this.x += this.speed
+    const currentTime = Date.now()
+
+    if (this.isDashing) {
+      this.x += this.dashDirectionX * this.dashSpeed
+      this.y += this.dashDirectionY * this.dashSpeed
+
+      if (currentTime >= this.dashEndTime) {
+        this.isDashing = false
+        this.invincible = false
+      }
+    } else {
+      if (keys["w"] || keys["arrowup"]) this.y -= this.speed
+      if (keys["s"] || keys["arrowdown"]) this.y += this.speed
+      if (keys["a"] || keys["arrowleft"]) this.x -= this.speed
+      if (keys["d"] || keys["arrowright"]) this.x += this.speed
+    }
 
     this.x = Math.max(this.size, Math.min(CANVAS_WIDTH - this.size, this.x))
     this.y = Math.max(this.size, Math.min(CANVAS_HEIGHT - this.size, this.y))
@@ -249,9 +272,50 @@ class Player {
     return this.sword.startSwing(this.mouseAngle)
   }
 
+  dash(keys) {
+    const currentTime = Date.now()
+
+    if (currentTime - this.lastDashTime < this.dashCooldown) {
+      return false
+    }
+
+    let dashX = 0
+    let dashY = 0
+
+    if (keys["w"] || keys["arrowup"]) dashY = -1
+    if (keys["s"] || keys["arrowdown"]) dashY = 1
+    if (keys["a"] || keys["arrowleft"]) dashX = -1
+    if (keys["d"] || keys["arrowright"]) dashX = 1
+
+    if (dashX === 0 && dashY === 0) {
+      dashY = -1
+    }
+
+    const length = Math.sqrt(dashX * dashX + dashY * dashY)
+    if (length > 0) {
+      dashX /= length
+      dashY /= length
+    }
+
+    this.dashDirectionX = dashX
+    this.dashDirectionY = dashY
+    this.isDashing = true
+    this.invincible = true
+    this.lastDashTime = currentTime
+    this.dashEndTime = currentTime + this.dashDuration
+
+    return true
+  }
+
   draw(ctx) {
     ctx.save()
     ctx.translate(this.x, this.y)
+
+    if (this.isDashing) {
+      ctx.globalAlpha = 0.5
+      ctx.shadowBlur = 20
+      ctx.shadowColor = "#4a90e2"
+    }
 
     ctx.fillStyle = "#4a90e2"
     ctx.fillRect(-this.size / 2, -this.size / 2, this.size, this.size)
@@ -518,15 +582,7 @@ class Game {
 
   setupControls() {
     document.addEventListener("keydown", (e) => {
-      this.keys[e.key.toLowerCase()] = true
-
-      if (e.key.toLowerCase() === "p") {
-        this.isPaused = !this.isPaused
-      }
-
-      if (e.key.toLowerCase() === "r" && this.isGameOver) {
-        location.reload()
-      }
+      this.handleKeyDown(e)
     })
 
     document.addEventListener("keyup", (e) => {
@@ -572,20 +628,37 @@ class Game {
     })
   }
 
+  handleKeyDown(e) {
+    const key = e.key.toLowerCase()
+    this.keys[key] = true
+
+    if (key === "q" && !this.isGameOver && !this.isPaused && !this.isBossFight) {
+      this.player.dash(this.keys)
+    }
+
+    if (key === "p") {
+      this.isPaused = !this.isPaused
+    }
+
+    if (key === "r" && this.isGameOver) {
+      location.reload()
+    }
+  }
+
   startWave() {
     if (this.wave === 10) {
       this.isBossFight = true
-      this.enemies.push(new Enemy(CANVAS_WIDTH / 2, -100, this.level, ENEMY_TYPES.BOSS_1))
+      this.enemies.push(new Enemy(CANVAS_WIDTH / 2, -100, this.level, BOSS_TYPES.BOSS_1))
       this.ui.addUpgrade("⚠️ 보스 등장: 어둠의 기사!")
       return
     } else if (this.wave === 20) {
       this.isBossFight = true
-      this.enemies.push(new Enemy(CANVAS_WIDTH / 2, -100, this.level, ENEMY_TYPES.BOSS_2))
+      this.enemies.push(new Enemy(CANVAS_WIDTH / 2, -100, this.level, BOSS_TYPES.BOSS_2))
       this.ui.addUpgrade("⚠️ 보스 등장: 사신!")
       return
     } else if (this.wave === 30) {
       this.isBossFight = true
-      this.enemies.push(new Enemy(CANVAS_WIDTH / 2, -100, this.level, ENEMY_TYPES.BOSS_3))
+      this.enemies.push(new Enemy(CANVAS_WIDTH / 2, -100, this.level, BOSS_TYPES.BOSS_3))
       this.ui.addUpgrade("⚠️ 최종 보스 등장: 파멸의 군주!")
       return
     }
@@ -647,6 +720,10 @@ class Game {
 
       this.player.x = Math.max(this.player.size, Math.min(CANVAS_WIDTH - this.player.size, this.player.x))
       this.player.y = Math.max(this.player.size, Math.min(CANVAS_HEIGHT - this.player.size, this.player.y))
+    }
+
+    if (this.keys["shift"] && !this.player.isDashing) {
+      this.player.dash(this.keys)
     }
   }
 
@@ -830,6 +907,18 @@ class Game {
       this.ctx.textBaseline = "middle"
       this.ctx.fillText("일시정지", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2)
     }
+
+    this.drawUI(this.ctx)
+  }
+
+  drawUI(ctx) {
+    const dashCooldown = this.player.lastDashTime + this.player.dashCooldown - Date.now()
+    const dashReady = dashCooldown <= 0
+
+    ctx.fillStyle = dashReady ? "#00ff00" : "#666"
+    ctx.font = "16px Arial"
+    ctx.textAlign = "left"
+    ctx.fillText(`대쉬 (Q): ${dashReady ? "준비완료" : `${Math.ceil(dashCooldown / 1000)}초`}`, 20, CANVAS_HEIGHT - 70)
   }
 
   gameLoop() {
